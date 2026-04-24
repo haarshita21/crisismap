@@ -1,0 +1,191 @@
+.hud-wrapper {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle, #0a0a0f 0%, #020205 100%);
+  overflow: hidden;
+  color: #00ffcc;
+  font-family: 'Space Mono', monospace, -apple-system, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 3D Container Transform */
+.map-3d-container {
+  width: 80%;
+  height: 80vh;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  box-shadow: 0 0 50px rgba(0, 255, 204, 0.1);
+  position: relative;
+  transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.map-3d-active {
+  transform: perspective(1200px) rotateX(45deg) scale(1.4) translateY(-10%);
+  border-radius: 20px;
+  box-shadow: 0 50px 100px rgba(0,0,0,0.8), 0 0 50px rgba(233, 69, 96, 0.2);
+}
+
+/* HUD Overlay Elements */
+.hud-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1000;
+  background: 
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+    linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  background-size: 100% 4px, 3px 100%;
+  box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
+}
+
+.hud-panel {
+  position: absolute;
+  background: rgba(5, 5, 10, 0.7);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  backdrop-filter: blur(10px);
+  padding: 1rem;
+  border-radius: 8px;
+  pointer-events: auto;
+}
+
+.hud-top-left {
+  top: 80px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-left: 3px solid #00ffcc;
+}
+
+.hud-top-right {
+  top: 80px;
+  right: 20px;
+  border-right: 3px solid #e94560;
+  text-align: right;
+}
+
+.hud-bottom-left {
+  bottom: 20px;
+  left: 20px;
+  border-bottom: 3px solid #f39c12;
+}
+
+.hud-bottom-right {
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 1rem;
+}
+
+.hud-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #6c7a89;
+  letter-spacing: 2px;
+  margin-bottom: 0.2rem;
+}
+
+.hud-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.hud-text-danger {
+  color: #e94560;
+  text-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
+}
+
+.hud-text-safe {
+  color: #00ffcc;
+  text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+}
+
+.hud-btn {
+  background: rgba(0, 255, 204, 0.1);
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  color: #00ffcc;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.hud-btn:hover {
+  background: rgba(0, 255, 204, 0.3);
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.4);
+}
+
+.hud-btn.active {
+  background: #00ffcc;
+  color: #05050A;
+}
+
+/* Crosshair center */
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.crosshair::before, .crosshair::after {
+  content: "";
+  position: absolute;
+  background: rgba(0, 255, 204, 0.5);
+}
+
+.crosshair::before {
+  top: 50%;
+  left: -20px;
+  right: -20px;
+  height: 1px;
+}
+
+.crosshair::after {
+  left: 50%;
+  top: -20px;
+  bottom: -20px;
+  width: 1px;
+}
+
+.hud-blinker {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #e94560;
+  border-radius: 50%;
+  margin-right: 8px;
+  box-shadow: 0 0 8px #e94560;
+  animation: blink 1s infinite alternate;
+}
+
+@keyframes blink {
+  0% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+/* Override leaflet popup for dark mode */
+.leaflet-popup-content-wrapper {
+  background: rgba(15, 15, 26, 0.95) !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(10px);
+}
+
+.leaflet-popup-tip {
+  background: rgba(15, 15, 26, 0.95) !important;
+}
