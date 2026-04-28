@@ -14,7 +14,7 @@ export default function FeedPage() {
       if (data) {
         const parsed = Object.keys(data)
           .map(key => ({ id: key, ...data[key] }))
-          .filter(i => i.approved && i.status !== 'resolved');
+          .filter(i => i.approved);
 
         // Sort by priority P1 > P2 > P3, then by timestamp (newest first)
         parsed.sort((a, b) => {
@@ -33,6 +33,9 @@ export default function FeedPage() {
     return () => unsubscribe();
   }, []);
 
+  const activeIncidents = incidents.filter(i => i.status !== 'resolved');
+  const resolvedIncidents = incidents.filter(i => i.status === 'resolved');
+
   return (
     <div className="container">
       <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
@@ -40,11 +43,11 @@ export default function FeedPage() {
         Live Crisis Feed
       </h2>
 
-      {incidents.length === 0 ? (
+      {activeIncidents.length === 0 ? (
         <p>No active incidents found.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {incidents.map(incident => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '3rem' }}>
+          {activeIncidents.map(incident => (
             <div key={incident.id} className="card" style={{ borderLeft: `4px solid ${incident.priority === 'P1' ? '#e94560' : incident.priority === 'P2' ? '#f39c12' : '#f1c40f'}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                 <div>
@@ -82,6 +85,42 @@ export default function FeedPage() {
                   </div>
                 </div>
               )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem', marginTop: '3rem', color: '#a0a5ba' }}>
+        <MapPin color="#a0a5ba" />
+        Resolved / Crisis Prone Areas
+      </h2>
+      <p style={{ color: '#7f8c8d', marginBottom: '1rem' }}>Historical data showing previously marked and resolved incidents to notify users of high-risk zones.</p>
+
+      {resolvedIncidents.length === 0 ? (
+        <p>No historical data available.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {resolvedIncidents.map(incident => (
+            <div key={incident.id} className="card" style={{ opacity: 0.7, borderLeft: '4px solid #7f8c8d' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#bdc3c7' }}>
+                    <MapPin size={18} />
+                    {incident.location_name}
+                  </h3>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <span className="badge" style={{ background: '#34495e' }}>{incident.crisis_type}</span>
+                    <span className="badge" style={{ background: '#2ecc71' }}>RESOLVED</span>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', color: '#7f8c8d', fontSize: '0.9rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', justifyContent: 'flex-end' }}>
+                    <Users size={14} /> Reports: {incident.report_count}
+                  </div>
+                  <div>{new Date(incident.timestamp).toLocaleString()}</div>
+                </div>
+              </div>
+              <p style={{ fontSize: '1rem', color: '#bdc3c7' }}>{incident.summary}</p>
             </div>
           ))}
         </div>

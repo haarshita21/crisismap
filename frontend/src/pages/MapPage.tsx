@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMapEvents, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ref, onValue } from 'firebase/database';
 import { db } from '../firebase';
@@ -29,12 +29,24 @@ function MapClickHandler({ setWalkthrough }: { setWalkthrough: (loc: {lat: numbe
 
 function FlyToUser({ center }: { center: [number, number] | null }) {
   const map = useMapEvents({});
+  const [flown, setFlown] = useState(false);
   useEffect(() => {
-    if (center) {
+    if (center && !flown) {
       map.flyTo(center, 13);
+      setFlown(true);
     }
-  }, [center, map]);
+  }, [center, map, flown]);
   return null;
+}
+
+function ZoomControls() {
+  const map = useMapEvents({});
+  return (
+    <div style={{ position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)', zIndex: 400, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <button onClick={() => map.zoomIn()} style={{ width: '40px', height: '40px', background: 'rgba(5, 5, 10, 0.8)', border: '1px solid #00ffcc', color: '#00ffcc', fontSize: '1.5rem', cursor: 'pointer', borderRadius: '4px' }}>+</button>
+      <button onClick={() => map.zoomOut()} style={{ width: '40px', height: '40px', background: 'rgba(5, 5, 10, 0.8)', border: '1px solid #00ffcc', color: '#00ffcc', fontSize: '1.5rem', cursor: 'pointer', borderRadius: '4px' }}>-</button>
+    </div>
+  );
 }
 
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -57,7 +69,21 @@ export default function MapPage() {
   const [showWalkthrough, setShowWalkthrough] = useState<{lat: number, lng: number} | null>(null);
   const [is3D, setIs3D] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+  const [broadcast, setBroadcast] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const broadcastRef = ref(db, 'broadcast');
+    const unsub = onValue(broadcastRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.message) {
+        setBroadcast(data.message);
+      } else {
+        setBroadcast(null);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
@@ -145,8 +171,17 @@ export default function MapPage() {
           </div>
         </div>
       )}
+      
+      {broadcast && (
+        <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '80%', background: 'rgba(233, 69, 96, 0.9)', color: 'white', padding: '1rem', borderRadius: '8px', border: '2px solid #ff2a2a', boxShadow: '0 0 20px rgba(233, 69, 96, 0.5)', textAlign: 'center' }}>
+          <h3 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}><span className="hud-blinker"></span> CITY-WIDE EMERGENCY BROADCAST</h3>
+          <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold' }}>{broadcast}</p>
+        </div>
+      )}
+
       <div className={`map-3d-container ${is3D ? 'map-3d-active' : ''}`}>
-        <MapContainer center={[12.9716, 77.5946]} zoom={12} style={{ height: '100%', width: '100%', background: '#05050A' }} zoomControl={false}>
+        <MapContainer center={[12.9716, 77.5946]} zoom={12} style={{ height: '100%', width: '100%', background: '#05050A' }} zoomControl={false} scrollWheelZoom={true}>
+          <ZoomControls />
           <MapClickHandler setWalkthrough={setShowWalkthrough} />
           <FlyToUser center={userLocation ? [userLocation.lat, userLocation.lng] : null} />
           <TileLayer
@@ -155,11 +190,23 @@ export default function MapPage() {
           />
           
           {userLocation && (
-            <Circle
-              center={[userLocation.lat, userLocation.lng]}
-              radius={5000} // 5km radius
-              pathOptions={{ color: '#00ffcc', fillColor: '#00ffcc', fillOpacity: 0.1, weight: 1, dashArray: '4, 8' }}
-            />
+            <React.Fragment>
+              <Circle
+                center={[userLocation.lat, userLocation.lng]}
+                radius={5000} // 5km radius
+                pathOptions={{ color: '#00ffcc', fillColor: '#00ffcc', fillOpacity: 0.1, weight: 1, dashArray: '4, 8' }}
+              />
+              {warned && (
+                <Polyline 
+                  positions={[
+                    [userLocation.lat, userLocation.lng],
+                    [userLocation.lat + 0.01, userLocation.lng + 0.01],
+                    [userLocation.lat + 0.015, userLocation.lng + 0.02]
+                  ]}
+                  pathOptions={{ color: '#2ecc71', weight: 4, dashArray: '10, 10' }}
+                />
+              )}
+            </React.Fragment>
           )}
 
           {incidents.map(incident => (
@@ -219,6 +266,11 @@ export default function MapPage() {
 
       <div className="hud-overlay"></div>
       <div className="crosshair"></div>
+
+      <div className="hud-panel" style={{ top: '20px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '1rem', padding: '0.5rem 1rem' }}>
+        <button className="hud-btn" onClick={() => navigate('/report')} style={{ fontWeight: 'bold' }}>Report Incident</button>
+        <button className="hud-btn" onClick={() => navigate('/feed')} style={{ fontWeight: 'bold' }}>News / Feed</button>
+      </div>
 
       <div className="hud-panel hud-top-left">
         <div>

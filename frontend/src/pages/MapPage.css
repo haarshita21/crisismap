@@ -24,9 +24,10 @@
 }
 
 .map-3d-active {
-  transform: perspective(1200px) rotateX(45deg) scale(1.4) translateY(-10%);
-  border-radius: 20px;
-  box-shadow: 0 50px 100px rgba(0,0,0,0.8), 0 0 50px rgba(233, 69, 96, 0.2);
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* HUD Overlay Elements */
@@ -53,6 +54,7 @@
   padding: 1rem;
   border-radius: 8px;
   pointer-events: auto;
+  z-index: 1001;
 }
 
 .hud-top-left {
