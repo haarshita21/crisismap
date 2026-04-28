@@ -7,6 +7,9 @@ import requests
 import os
 import json
 import time
+import random
+import smtplib
+from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,84 +17,206 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
+# =========================
+# ENV + AI CONFIG
+# =========================
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.0-flash")
 
+# =========================
+# FIREBASE
+# =========================
 cred = credentials.Certificate("serviceAccountKey.json")
+
 firebase_admin.initialize_app(cred, {
     'databaseURL': os.getenv("FIREBASE_DB_URL")
 })
 
-def extract_with_gemini(raw_text):
-    prompt = f"""You are an emergency analyst for Bangalore city. The input may be in English, Hindi, or Kannada. Extract information and return ONLY a valid JSON object with these fields: location_name as the specific place name, crisis_type as one of flood/fire/medical/structural/traffic/other, severity as one of critical/high/medium/low, affected_count as a number or null, needs as an array from rescue/medical/food_water/fire/police/shelter, summary as one sentence describing the situation.
+# =========================
+# EMAIL CONFIG
+# =========================
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASS = os.getenv("EMAIL_PASS")
 
-Text: {raw_text}
+# Temporary storage
+verification_codes = {}
+
+# =========================
+# GEMINI EXTRACTION
+# =========================
+def extract_with_gemini(raw_text):
+    prompt = f"""
+You are an emergency analyst for Bangalore city.
+
+Extract and return ONLY valid JSON with:
+location_name,
+crisis_type,
+severity,
+affected_count,
+needs,
+summary
+
+Text:
+{raw_text}
 """
+
     response = model.generate_content(prompt)
     text = response.text.strip()
+
     if text.startswith("```"):
         text = text.split("```")[1]
         if text.startswith("json"):
             text = text[4:]
+
     return json.loads(text.strip())
 
+# =========================
+# GEO LOCATION
+# =========================
 def get_coordinates(location_name):
-    url = f"https://nominatim.openstreetmap.org/search"
+    url = "https://nominatim.openstreetmap.org/search"
+
     params = {
         "q": f"{location_name}, Bangalore, India",
         "format": "json",
         "limit": 1
     }
-    headers = {"User-Agent": "CrisisMapBangalore/1.0"}
+
+    headers = {
+        "User-Agent": "CrisisMapBangalore/1.0"
+    }
+
     response = requests.get(url, params=params, headers=headers)
     results = response.json()
+
     if results:
         return float(results[0]["lat"]), float(results[0]["lon"])
+
     return 12.9716, 77.5946
 
+# =========================
+# PRIORITY
+# =========================
 def assign_priority(severity, affected_count):
     if severity == "critical":
         return "P1"
+
     elif severity == "high":
         return "P1" if affected_count and affected_count > 10 else "P2"
+
     elif severity == "medium":
         return "P2"
-    else:
-        return "P3"
 
+    return "P3"
+
+# =========================
+# SEND EMAIL
+# =========================
+def send_email_code(receiver_email, code):
+    try:
+        subject = "CrisisMap Email Verification"
+        body = f"""
+Your CrisisMap verification code is:
+
+{code}
+
+Do not share this code with anyone.
+"""
+
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = EMAIL_USER
+        msg["To"] = receiver_email
+
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(EMAIL_USER, EMAIL_PASS)
+        server.sendmail(EMAIL_USER, receiver_email, msg.as_string())
+        server.quit()
+
+        return True
+
+    except Exception as e:
+        print("Email Error:", e)
+        return False
+
+# =========================
+# SEND CODE
+# =========================
 @app.route("/send-code", methods=["POST"])
 def send_code():
     data = request.json or {}
-    email = data.get("email", "")
-    if not email:
-        return jsonify({"error": "No email provided"}), 400
-        
-    # Generate a random 4-digit code
-    import random
-    code = f"{random.randint(1000, 9999)}"
-    
-    # In a real app, you would use smtplib or SendGrid here
-    print(f"\n=========================================")
-    print(f"📧 EMAIL SENT TO: {email}")
-    print(f"🔐 VERIFICATION CODE: {code}")
-    print(f"=========================================\n")
-    
-    return jsonify({"message": "Code sent successfully", "code": code})
 
+    email = data.get("email")
+
+    if not email:
+        return jsonify({"error": "Email required"}), 400
+
+    code = str(random.randint(1000, 9999))
+
+    verification_codes[email] = code
+
+    success = send_email_code(email, code)
+
+    if not success:
+        return jsonify({"error": "Email sending failed"}), 500
+
+    return jsonify({
+        "success": True,
+        "message": "Verification code sent"
+    })
+
+# =========================
+# VERIFY CODE
+# =========================
+@app.route("/verify-code", methods=["POST"])
+def verify_code():
+    data = request.json or {}
+
+    email = data.get("email")
+    code = data.get("code")
+
+    if not email or not code:
+        return jsonify({"error": "Missing fields"}), 400
+
+    stored_code = verification_codes.get(email)
+
+    if stored_code == code:
+        del verification_codes[email]
+
+        return jsonify({
+            "success": True,
+            "message": "Verification successful"
+        })
+
+    return jsonify({
+        "success": False,
+        "message": "Invalid code"
+    })
+
+# =========================
+# SUBMIT INCIDENT
+# =========================
 @app.route("/submit", methods=["POST"])
 def submit_report():
     data = request.json or {}
+
     raw_text = data.get("text", "")
-    
+
     if not raw_text:
-        raw_text = "SOS Emergency at current location. Immediate aid requested."
-        
+        raw_text = "SOS Emergency at current location."
+
     extracted = extract_with_gemini(raw_text)
-    
+
     location_name = extracted.get("location_name", "Unknown Area")
+
     lat, lng = get_coordinates(location_name)
-    priority = assign_priority(extracted.get("severity", "high"), extracted.get("affected_count"))
-    
+
+    priority = assign_priority(
+        extracted.get("severity", "high"),
+        extracted.get("affected_count")
+    )
+
     incident = {
         "raw_text": raw_text,
         "location_name": location_name,
@@ -100,123 +225,109 @@ def submit_report():
         "crisis_type": extracted.get("crisis_type", "other"),
         "priority": priority,
         "needs": extracted.get("needs", []),
-        "summary": extracted.get("summary", "Emergency reported automatically."),
+        "summary": extracted.get("summary", ""),
         "status": "active",
         "approved": False,
         "report_count": 1,
         "timestamp": int(time.time() * 1000)
     }
-    
+
     ref = db.reference("incidents")
     ref.push(incident)
-    
-    return jsonify({"success": True, "message": "Report received"})
 
+    return jsonify({
+        "success": True
+    })
+
+# =========================
+# INCIDENTS
+# =========================
 @app.route("/incidents", methods=["GET"])
 def get_incidents():
     ref = db.reference("incidents")
     data = ref.get()
+
     incidents = []
+
     if data:
         for key, val in data.items():
             val["id"] = key
             incidents.append(val)
-            
-    # Pull active real entries from USGS Earthquake API
-    try:
-        res = requests.get("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson", timeout=5)
-        if res.status_code == 200:
-            eq_data = res.json()
-            for feat in eq_data.get("features", [])[:20]: # top 20 recent
-                mag = feat["properties"]["mag"]
-                place = feat["properties"]["place"]
-                time_ms = feat["properties"]["time"]
-                coords = feat["geometry"]["coordinates"] # [lon, lat, depth]
-                
-                priority = "P1" if mag >= 6.0 else ("P2" if mag >= 5.0 else "P3")
-                
-                incidents.append({
-                    "id": feat["id"],
-                    "raw_text": f"Earthquake magnitude {mag} at {place}",
-                    "location_name": place,
-                    "lat": coords[1],
-                    "lng": coords[0],
-                    "crisis_type": "structural",
-                    "priority": priority,
-                    "needs": ["rescue", "medical"] if mag >= 6.0 else [],
-                    "summary": f"Seismic event detected: Magnitude {mag}. {place}.",
-                    "status": "active",
-                    "approved": True,
-                    "report_count": 1,
-                    "timestamp": time_ms
-                })
-    except Exception as e:
-        print("Failed to fetch USGS data:", e)
-        
+
     return jsonify(incidents)
 
+# =========================
+# APPROVE
+# =========================
 @app.route("/approve/<incident_id>", methods=["POST"])
 def approve_incident(incident_id):
     ref = db.reference(f"incidents/{incident_id}")
     ref.update({"approved": True})
+
     return jsonify({"success": True})
 
+# =========================
+# UPDATE STATUS
+# =========================
 @app.route("/update-status/<incident_id>", methods=["POST"])
 def update_status(incident_id):
     data = request.json
+
     ref = db.reference(f"incidents/{incident_id}")
     ref.update({"status": data["status"]})
+
     return jsonify({"success": True})
 
+# =========================
+# UPDATE PRIORITY
+# =========================
 @app.route("/update-priority/<incident_id>", methods=["POST"])
 def update_priority(incident_id):
     data = request.json
+
     ref = db.reference(f"incidents/{incident_id}")
     ref.update({"priority": data["priority"]})
+
     return jsonify({"success": True})
 
+# =========================
+# BRIEFING
+# =========================
 @app.route("/briefing", methods=["GET"])
 def get_briefing():
     ref = db.reference("incidents")
     data = ref.get()
-    if not data:
-        return jsonify({"briefing": "No active incidents."})
-    
-    active = [v for v in data.values() if v.get("approved") and v.get("status") == "active"]
-    if not active:
-        return jsonify({"briefing": "No active incidents currently."})
-    
-    summaries = "\n".join([f"- {i['priority']} {i['crisis_type']} at {i['location_name']}: {i['summary']}" for i in active])
-    
-    prompt = f"""
-You are a crisis analyst briefing an incident commander for Bangalore city.
-Based on these active incidents, write a 3-4 sentence situation report.
-Highlight the most critical areas and any urgent patterns.
 
-Incidents:
+    if not data:
+        return jsonify({"briefing": "No incidents."})
+
+    active = [
+        v for v in data.values()
+        if v.get("approved") and v.get("status") == "active"
+    ]
+
+    if not active:
+        return jsonify({"briefing": "No active incidents."})
+
+    summaries = "\n".join([
+        f"- {i['priority']} {i['crisis_type']} at {i['location_name']}"
+        for i in active
+    ])
+
+    prompt = f"""
+Create a short emergency briefing.
+
 {summaries}
 """
+
     response = model.generate_content(prompt)
-    return jsonify({"briefing": response.text.strip()})
 
-@app.route("/whatsapp", methods=["POST"])
-def whatsapp_webhook():
-    incoming = request.form.get("Body", "")
-    
-    if incoming.strip().upper() == "HELP":
-        reply = "Emergency services have been notified. Please call 112 immediately. Stay where you are."
-        return f"""<?xml version="1.0" encoding="UTF-8"?>
-<Response><Message>{reply}</Message></Response>"""
-    
-    if incoming.strip().upper() == "YES":
-        reply = "Glad you are safe. Your report has been logged. Stay away from the affected area."
-        return f"""<?xml version="1.0" encoding="UTF-8"?>
-<Response><Message>{reply}</Message></Response>"""
-    
-    extract_with_gemini(incoming)
-    reply = "Report received. Are you safe? Reply YES or HELP."
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
-<Response><Message>{reply}</Message></Response>"""
+    return jsonify({
+        "briefing": response.text.strip()
+    })
 
+# =========================
+# RUN
+# =========================
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
