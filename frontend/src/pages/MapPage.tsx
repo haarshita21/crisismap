@@ -18,7 +18,7 @@ const helplines: Record<string, string[]> = {
   other: ['Emergency 112', 'Police 100']
 };
 
-function MapClickHandler({ setWalkthrough }: { setWalkthrough: (loc: {lat: number, lng: number} | null) => void }) {
+function MapClickHandler({ setWalkthrough }: { setWalkthrough: (loc: { lat: number, lng: number } | null) => void }) {
   useMapEvents({
     click(e) {
       setWalkthrough({ lat: e.latlng.lat, lng: e.latlng.lng });
@@ -66,8 +66,7 @@ export default function MapPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
   const [warned, setWarned] = useState(false);
-  const [showWalkthrough, setShowWalkthrough] = useState<{lat: number, lng: number} | null>(null);
-  const [is3D, setIs3D] = useState(false);
+  const [showWalkthrough, setShowWalkthrough] = useState<{ lat: number, lng: number } | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
   const [broadcast, setBroadcast] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -152,17 +151,17 @@ export default function MapPage() {
             </button>
           </div>
           <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-            <iframe 
-              width="100%" 
-              height="100%" 
-              frameBorder="0" 
+            <iframe
+              width="100%"
+              height="100%"
+              frameBorder="0"
               allowFullScreen
               src={`https://maps.google.com/maps?t=h&q=loc:${showWalkthrough.lat},${showWalkthrough.lng}&ie=UTF8&z=19&output=embed`}
               style={{ filter: 'contrast(1.2)' }}
             />
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(0,255,204,0.05) 40px, rgba(0,255,204,0.05) 41px)', pointerEvents: 'none', zIndex: 10 }}></div>
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 11 }}>
-                 <Crosshair size={64} style={{ opacity: 0.8, color: '#e94560' }} />
+              <Crosshair size={64} style={{ opacity: 0.8, color: '#e94560' }} />
             </div>
           </div>
           <div style={{ padding: '0.5rem 1rem', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(0, 255, 204, 0.3)', fontSize: '0.8rem' }}>
@@ -171,15 +170,15 @@ export default function MapPage() {
           </div>
         </div>
       )}
-      
+
       {broadcast && (
-        <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '80%', background: 'rgba(233, 69, 96, 0.9)', color: 'white', padding: '1rem', borderRadius: '8px', border: '2px solid #ff2a2a', boxShadow: '0 0 20px rgba(233, 69, 96, 0.5)', textAlign: 'center' }}>
+        <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '60%', background: 'rgba(233, 69, 96, 0.9)', color: 'white', padding: '1rem', borderRadius: '8px', border: '2px solid #ff2a2a', boxShadow: '0 0 20px rgba(233, 69, 96, 0.5)', textAlign: 'center' }}>
           <h3 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}><span className="hud-blinker"></span> CITY-WIDE EMERGENCY BROADCAST</h3>
           <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold' }}>{broadcast}</p>
         </div>
       )}
 
-      <div className={`map-3d-container ${is3D ? 'map-3d-active' : ''}`}>
+      <div className="map-3d-container">
         <MapContainer center={[12.9716, 77.5946]} zoom={12} style={{ height: '100%', width: '100%', background: '#05050A' }} zoomControl={false} scrollWheelZoom={true}>
           <ZoomControls />
           <MapClickHandler setWalkthrough={setShowWalkthrough} />
@@ -188,7 +187,7 @@ export default function MapPage() {
             attribution='&copy; Esri'
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           />
-          
+
           {userLocation && (
             <React.Fragment>
               <Circle
@@ -197,7 +196,7 @@ export default function MapPage() {
                 pathOptions={{ color: '#00ffcc', fillColor: '#00ffcc', fillOpacity: 0.1, weight: 1, dashArray: '4, 8' }}
               />
               {warned && (
-                <Polyline 
+                <Polyline
                   positions={[
                     [userLocation.lat, userLocation.lng],
                     [userLocation.lat + 0.01, userLocation.lng + 0.01],
@@ -310,12 +309,7 @@ export default function MapPage() {
       </div>
 
       <div className="hud-panel hud-bottom-right">
-        <button
-          className={`hud-btn ${is3D ? 'active' : ''}`}
-          onClick={() => setIs3D(!is3D)}
-        >
-          {is3D ? '2D Topo' : '3D Terrain'}
-        </button>
+        {/* 3D toggle removed */}
       </div>
     </div>
   );

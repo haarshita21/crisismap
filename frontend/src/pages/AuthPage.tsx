@@ -32,24 +32,27 @@ export default function AuthPage({ onLogin }: { onLogin?: () => void }) {
         return;
       }
       try {
-        const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/send-code`, { email });
-        setActualCode(res.data.code);
+        await axios.post(`${import.meta.env.VITE_BACKEND_URL}/send-code`, { email });
         setSignupStep(2);
       } catch (err) {
         setErrorMsg('Failed to send code. Server offline.');
       }
       setLoading(false);
-    } else if (!isLogin && signupStep === 2) {
-      if (inputCode !== actualCode) {
+      try {
+        const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/verify-code`, { email, code: inputCode });
+        if (res.data.success) {
+          setTimeout(() => {
+            if (onLogin) onLogin();
+            navigate('/map');
+          }, 1000);
+        } else {
+          setErrorMsg('Invalid Code. Access Denied.');
+          setLoading(false);
+        }
+      } catch (err) {
         setErrorMsg('Invalid Code. Access Denied.');
         setLoading(false);
-        return;
       }
-      // Success
-      setTimeout(() => {
-        if (onLogin) onLogin();
-        navigate('/map');
-      }, 1000);
     } else {
       // Login mode - mock immediate success
       setTimeout(() => {

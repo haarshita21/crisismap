@@ -97,6 +97,15 @@ export default function AdminPage() {
     }
   };
 
+  const clearBroadcasts = async () => {
+    try {
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/clear-broadcasts`);
+      alert("Active broadcasts cleared successfully!");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const generateRetrospective = async (id: string) => {
     setLoadingRetro(prev => ({ ...prev, [id]: true }));
     try {
@@ -261,9 +270,14 @@ export default function AdminPage() {
             placeholder="Type emergency broadcast message..."
             style={{ width: '100%', height: '100px', marginBottom: '1rem', padding: '0.5rem' }}
           />
-          <button onClick={sendBroadcast} className="btn-primary" style={{ background: '#e94560' }}>
-            Transmit Broadcast
-          </button>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button onClick={sendBroadcast} className="btn-primary" style={{ background: '#e94560' }}>
+              Transmit Broadcast
+            </button>
+            <button onClick={clearBroadcasts} className="btn-primary" style={{ background: '#333' }}>
+              Clear Active Broadcasts
+            </button>
+          </div>
         </div>
       )}
 
@@ -273,10 +287,10 @@ export default function AdminPage() {
             <div key={i.id} className="card">
               <h4>{i.location_name} - {i.crisis_type}</h4>
               <p>{i.summary}</p>
-              
-              <button 
-                onClick={() => generateRetrospective(i.id)} 
-                className="btn-primary" 
+
+              <button
+                onClick={() => generateRetrospective(i.id)}
+                className="btn-primary"
                 style={{ marginTop: '1rem' }}
                 disabled={loadingRetro[i.id]}
               >
